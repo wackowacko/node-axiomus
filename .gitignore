@@ -1,0 +1,12 @@
+
+node_modules/
+bower_components/
+cache/
+managed_cache/
+log/
+tmp/
+app-www/tmp/
+_build/
+application.default.log
+image-*
+

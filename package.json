@@ -1,0 +1,18 @@
+{
+  "name": "node-axiomus",
+  "version": "1.0.0",
+  "description": "Node module for Axiomus API (axiomus.ru)",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Wacko Wacko",
+  "license": "ISC",
+  "dependencies": {
+    "http": "0.0.0",
+    "https": "^1.0.0",
+    "md5": "^2.2.1",
+    "querystring": "^0.2.0",
+    "xml2json": "^0.11.0"
+  }
+}
