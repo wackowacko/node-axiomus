@@ -5,29 +5,9 @@ let md5 = require('md5'),
     http = require("http"),
     https = require("https"),
     querystring = require('querystring'),
-    parser = require('xml2json');
+    parser = require('xml2json'),
+    dateFormat = require('dateformat');
 
-
-/*  Must use this stuff, because Axiomus API
-    accept only cyrillic letters for Client Name.
-    Ex: getPrice(...);
-*/
-transliterate = (
-    function() {
-        var
-            rus = "щ   ш  ч  ц  ю  я  ё  ж  ъ  ы  э  а б в г д е з и й к л м н о п р с т у ф х ь".split(/ +/g),
-            eng = "shh sh ch cz yu ya yo zh `` y' e` a b v g d e z i j k l m n o p r s t u f x `".split(/ +/g)
-        ;
-        return function(text, engToRus) {
-            var x;
-            for(x = 0; x < rus.length; x++) {
-                text = text.split(engToRus ? eng[x] : rus[x]).join(engToRus ? rus[x] : eng[x]);
-                text = text.split(engToRus ? eng[x].toUpperCase() : rus[x].toUpperCase()).join(engToRus ? rus[x].toUpperCase() : eng[x].toUpperCase()); 
-            }
-            return text;
-        }
-    }
-)();
 
 
 /*
@@ -103,14 +83,12 @@ class Axiomus {
     /*
     */
     getBoxberryLocations(callback) {
-        let request_data = `<?xml version='1.0' standalone='yes'?>
+        let request_data = `<?xml version="1.0" standalone="yes"?>
             <singleorder>
                 <mode>get_boxberry_pickup</mode>
                 <auth ukey="${this.API_KEY}" />
             </singleorder>
         `;
-
-        return callback(false, []);
 
         this.send_request(request_data, this.API_PATH, (err, result) => {
             if (err) return callback(err, result);
@@ -118,7 +96,9 @@ class Axiomus {
             // Try convert xml to json
             let json = null;
             try {
-                json = parser.toJson( result );
+                result = result.replaceAll(/\r/, '');
+                result = result.replaceAll(/\n/, '');
+                json = JSON.parse(parser.toJson( result ));
             } catch(e) {
                 return callback(true, e);
             }
@@ -134,13 +114,17 @@ class Axiomus {
     getItemsData(items) {
         let result = {
             items_string: '',
-            total_count: 0
+            total_count: 0,
         }
 
         items.forEach(function(item, i) {
             // TODO
-            result.items_string += `<item name="${item.title}" weight="${item.weight}" quantity="${item.quantity}" price="${item.price}" bundling="1" />`;
-            result.total_count += item.quantity;
+            let title = item.title || "Ошибка наименования";
+            title = title.replace(/"/g, '&quot;');
+
+            let q = new Number(item.quantity).toFixed(0);
+            result.items_string += `<item name="${title}" weight="${item.weight}" quantity="${q}" price="${item.price}" bundling="1" />`;
+            result.total_count = +result.total_count + +q;
         });
 
         return result;
@@ -160,14 +144,31 @@ class Axiomus {
         total_count = items_data.total_count;
 
 
-        /*
-        */
+
+        // let delivery_date = new Date();
+        // let isWeekend = (delivery_date.getDay() == 5) || (delivery_date.getDay() == 6) || (delivery_date.getDay() == 0);
+        // if (isWeekend) delivery_date.setDate(delivery_date.getDate()+3)
+        // else delivery_date.setDate(delivery_date.getDate()+1)
+        // // delivery_date.setDate(delivery_date.getDate()+3)
+        let delivery_date = new Date();
+        let hours = delivery_date.getHours();
+        let delivery_day = 1;
+        if (hours > 21) delivery_day = 2;
+        let isWeekend = (delivery_date.getDay() == 5) || (delivery_date.getDay() == 6) || (delivery_date.getDay() == 0);
+        if (isWeekend) delivery_date.setDate(delivery_date.getDate()+4)
+        else delivery_date.setDate(delivery_date.getDate() + delivery_day)
+        delivery_date = dateFormat(delivery_date, 'yyyy-mm-dd');
+
+
         let checksum = md5(this.API_UID+'u'+items_count+total_count);
-        let request_data = `<?xml version='1.0' standalone='yes'?>
+
+        console.log(`DEBUG: items_count=${items_count}, total_count=${total_count}`);
+
+        let request_data = `<?xml version="1.0" standalone="yes"?>
             <singleorder>
                 <mode type="boxberry_pickup">get_price</mode>
                 <auth ukey="${this.API_KEY}" checksum="${checksum}" />
-                <order inner_id="${order.order_id}" name="${order.client.name}" d_date="${order.delivery_date}" b_time="${order.time_from}" e_time="${order.time_to}">
+                <order inner_id="${order.order_id}" name="${order.client.name}" d_date="${delivery_date}" b_time="${order.time_from}" e_time="${order.time_to}">
                     <address office_code="${order.office_code}" />
                     <contacts>${order.client.phone}</contacts>
                     <services valuation="yes" cod="no" checkup="no" part_return="no" />
@@ -175,6 +176,9 @@ class Axiomus {
                 </order>
             </singleorder>
         `;
+
+
+        console.log(request_data);
 
 
         /*
@@ -186,10 +190,12 @@ class Axiomus {
             let json = null;
             let price = 0;
             try {
+                result = result.replaceAll(/\r/, '');
+                result = result.replaceAll(/\n/, '');
                 json = JSON.parse( parser.toJson( result ) );
                 price = Number(json.response.order.total_price || 0);
             } catch(e) {
-                return callback(true, e);
+                return callback(e, result);
             }
 
             return callback(false, price);
@@ -210,14 +216,22 @@ class Axiomus {
         total_count = items_data.total_count;
 
 
-        /*
-        */
+        let delivery_date = new Date();
+        let hours = delivery_date.getHours();
+        let delivery_day = 1;
+        if (hours > 21) delivery_day = 2;
+        let isWeekend = (delivery_date.getDay() == 5) || (delivery_date.getDay() == 6) || (delivery_date.getDay() == 0);
+        if (isWeekend) delivery_date.setDate(delivery_date.getDate()+4)
+        else delivery_date.setDate(delivery_date.getDate() + delivery_day)
+        // delivery_date.setDate(delivery_date.getDate()+3)
+        delivery_date = dateFormat(delivery_date, 'yyyy-mm-dd');
+
         let checksum = md5(this.API_UID+'u'+items_count+total_count);
-        let request_data = `<?xml version='1.0' standalone='yes'?>
+        let request_data = `<?xml version="1.0" standalone="yes"?>
             <singleorder>
                 <mode>new_boxberry_pickup</mode>
                 <auth ukey="${this.API_KEY}" checksum="${checksum}" />
-                <order inner_id="${order.order_id}" name="${order.client.name}" d_date="${order.delivery_date}" b_time="${order.time_from}" e_time="${order.time_to}" site="${order.from_website}">
+                <order inner_id="${order.order_id}" name="${order.client.name}" d_date="${delivery_date}" b_time="${order.time_from}" e_time="${order.time_to}" site="${order.from_website}">
                     <address office_code="${order.office_code}" />
                     <contacts>${order.client.phone}</contacts>
                     <services cod="no" checkup="no" part_return="no" />
@@ -235,6 +249,8 @@ class Axiomus {
             // Try convert xml to json
             let json = null;
             try {
+                result = result.replaceAll(/\r/, '');
+                result = result.replaceAll(/\n/, '');
                 json = JSON.parse( parser.toJson( result ) );
             } catch(e) {
                 return callback(true, e);

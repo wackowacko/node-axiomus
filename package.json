@@ -1,7 +1,16 @@
 {
   "name": "node-axiomus",
-  "version": "1.0.0",
-  "description": "Node module for Axiomus API (axiomus.ru)",
+  "version": "0.0.65",
+  "description": "Axiomus/Boxberry delivery service API wrapper for Node JS (axiomus.ru)",
+  "keywords": [
+    "axiomus",
+    "boxberry",
+    "api"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/wackowacko/node-axiomus.git"
+  },
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -9,6 +18,7 @@
   "author": "Wacko Wacko",
   "license": "ISC",
   "dependencies": {
+    "dateformat": "^2.0.0",
     "http": "0.0.0",
     "https": "^1.0.0",
     "md5": "^2.2.1",
